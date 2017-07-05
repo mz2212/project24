@@ -77,7 +77,7 @@ func (p *posts) reply(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Failed attempt to post comment: ", err)
 	}
 	p.newComment(threadID, r.FormValue("name"), r.FormValue("body"))
-	http.Redirect(w, r, "/view/"+string(threadID), http.StatusFound)
+	http.Redirect(w, r, "/view/"+r.URL.Path[len("/reply"):], http.StatusFound)
 }
 
 func (p *posts) newPost(threadID int, name, subject, body string) {
