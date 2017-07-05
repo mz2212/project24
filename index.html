@@ -5,6 +5,13 @@
 		<meta content='width=device-width, initial-scale=1' name=viewport />
 		<link rel="stylesheet" href="https://lollerskates.ga/css/base.css" />
 		<link rel="stylesheet" href="https://lollerskates.ga/css/board.css" />
+		<script type="text/javascript">
+			function show(toShow, toHide, button) {
+				document.getElementById(toShow).style.display = 'block';
+				document.getElementById(toHide).style.display = 'none';
+				btn.style.display = 'none';
+			}
+		</script>
 	</head>
 	<body>
 		<h1>Project24</h1>
@@ -20,12 +27,32 @@
 		</form>
 		Show all OP on this page.
 		{{range .}}
-		<!--<div><a href="/reply/{{.ThreadID}}">Reply</a></div>-->
 		<div class="post">
+			<h2>{{.Subject}}</h2>
 			<h3>{{.Name}}</h3>
 			<div>{{.TimePosted}}</div>
 			<div><p>{{.Body}}</p></div>
+			<div id="replyLink{{.ThreadID}}"><a href="#" onclick="show('reply{{.ThreadID}}', 'replyLink{{.ThreadID}}', this); return false;">Reply</a></div>
+			<div id="reply{{.ThreadID}}" style="display: none;">
+				<form action="/reply/{{.ThreadID}}" enctype="multipart/form-data" method="POST">
+					Name:
+					<input type="text" name="name" value="Anonymous" /><br />
+					Body:
+					<input type="text" name="body" /><br />
+					<input type="submit" value="submit" />
+				</form>
+			</div>
+			{{range .Comments}}
+			<div class="post">
+				<h2>{{.Subject}}</h2>
+				<h3>{{.Name}}</h3>
+				<div>{{.TimePosted}}</div>
+				<div><p>{{.Body}}</p></div>
+				<!--<div><a href="/reply/{{.ThreadID}}">Reply</a></div>-->
+			</div>
+			{{end}}
 		</div>
+		<br />
 		{{end}}
 		<div class="lower-left"><a href="https://github.com/mz2212/project24">Source</a></div>
 	</body>
