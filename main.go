@@ -26,7 +26,7 @@ func main() {
 	var (
 		p = make(posts)
 	)
-	p.newPost(1, "Anon", "Test Post", "Test Post body that is a lot of words")
+	//p.newPost(1, "Anon", "Test Post", "Test Post body that is a lot of words")
 	http.HandleFunc("/", p.viewPosts)
 	http.HandleFunc("/newthread/", p.newThread)
 	http.HandleFunc("/reply/", p.reply)
@@ -49,7 +49,7 @@ func (p *posts) viewPosts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *posts) newThread(w http.ResponseWriter, r *http.Request) {
-	p.newPost(len(*p)+1, r.FormValue("name"), r.FormValue("subject"), r.FormValue("body"))
+	p.newPost((*p)[len(*p)].ThreadID+1, r.FormValue("name"), r.FormValue("subject"), r.FormValue("body"))
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 

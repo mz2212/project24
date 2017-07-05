@@ -48,8 +48,19 @@
 				<h3>{{.Name}}</h3>
 				<div>{{.TimePosted}}</div>
 				<div><p>{{.Body}}</p></div>
-				<!--<div><a href="/reply/{{.ThreadID}}">Reply</a></div>-->
+				<!--
+				<div id="replyLink{{.ThreadID}}"><a href="#" onclick="show('reply{{.ThreadID}}', 'replyLink{{.ThreadID}}', this); return false;">Reply</a></div>
+				<div id="reply{{.ThreadID}}" style="display: none;">
+					<form action="/reply/{{.ThreadID}}" enctype="multipart/form-data" method="POST">
+						Name:
+						<input type="text" name="name" value="Anonymous" /><br />
+						Body:
+						<input type="text" name="body" /><br />
+						<input type="submit" value="submit" />
+					</form>
+				</div>
 			</div>
+			-->
 			{{end}}
 		</div>
 		<br />
