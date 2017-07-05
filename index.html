@@ -6,62 +6,35 @@
 		<link rel="stylesheet" href="https://lollerskates.ga/css/base.css" />
 		<link rel="stylesheet" href="https://lollerskates.ga/css/board.css" />
 		<script type="text/javascript">
-			function show(toShow, toHide, button) {
-				document.getElementById(toShow).style.display = 'block';
-				document.getElementById(toHide).style.display = 'none';
-				btn.style.display = 'none';
+			function showHide(toShow) {
+				var e = document.getElementById(toShow).style.display = 'block';
+				if(e.style.display == 'block')
+					e.style.display = 'none';
+				else
+					e.style.display = 'block';
 			}
 		</script>
 	</head>
 	<body>
 		<h1>Project24</h1>
-		<p>Message board where messages are deleted after 24 hours</p>
-		<form action="/newthread/" enctype="multipart/form-data" method="POST"> 
-			Name:
-			<input type="text" name="name" value="Anonymous" /> <br />
-			Subject:
-			<input type="text" name="subject" /> <br />
-			Body:
-			<input type="text" name="body" /> <br />
-			<input type="submit" value="submit" />
-		</form>
-		Show all OP on this page.
+		<p>Forum where messages are deleted after 24 hours</p>
+		<hr />
+		<div><a href="#" onclick="showHide('newPost'); return false;">New Post</a></div>
+		<div id="newPost" style="display: none;">
+			<form action="/newthread/" enctype="multipart/form-data" method="POST"> 
+				Name:
+				<input type="text" name="name" value="Anonymous" /> <br />
+				Subject:
+				<input type="text" name="subject" /> <br />
+				Body:
+				<textarea name="body"></textarea><br />
+				<input type="submit" value="submit" />
+			</form>
+		</div>
 		{{range .}}
 		<div class="post">
-			<h2>{{.Subject}}</h2>
-			<h3>{{.Name}}</h3>
-			<div>{{.TimePosted}}</div>
-			<div><p>{{.Body}}</p></div>
-			<div id="replyLink{{.ThreadID}}"><a href="#" onclick="show('reply{{.ThreadID}}', 'replyLink{{.ThreadID}}', this); return false;">Reply</a></div>
-			<div id="reply{{.ThreadID}}" style="display: none;">
-				<form action="/reply/{{.ThreadID}}" enctype="multipart/form-data" method="POST">
-					Name:
-					<input type="text" name="name" value="Anonymous" /><br />
-					Body:
-					<input type="text" name="body" /><br />
-					<input type="submit" value="submit" />
-				</form>
-			</div>
-			{{range .Comments}}
-			<div class="post">
-				<h2>{{.Subject}}</h2>
-				<h3>{{.Name}}</h3>
-				<div>{{.TimePosted}}</div>
-				<div><p>{{.Body}}</p></div>
-				<!--
-				<div id="replyLink{{.ThreadID}}"><a href="#" onclick="show('reply{{.ThreadID}}', 'replyLink{{.ThreadID}}', this); return false;">Reply</a></div>
-				<div id="reply{{.ThreadID}}" style="display: none;">
-					<form action="/reply/{{.ThreadID}}" enctype="multipart/form-data" method="POST">
-						Name:
-						<input type="text" name="name" value="Anonymous" /><br />
-						Body:
-						<input type="text" name="body" /><br />
-						<input type="submit" value="submit" />
-					</form>
-				</div>
-			</div>
-			-->
-			{{end}}
+			<h3><a href="/view/{{.ThreadID}}">{{.Subject}}</a></h3>by: {{.Name}}
+			<div>at: {{.TimePosted}}</div>
 		</div>
 		<br />
 		{{end}}

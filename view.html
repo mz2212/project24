@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{.Subject}} - Project24</title>
+		<meta content='width=device-width, initial-scale=1' name=viewport />
+		<link rel="stylesheet" href="https://lollerskates.ga/css/base.css" />
+		<link rel="stylesheet" href="https://lollerskates.ga/css/board.css" />
+  </head>
+  <body>
+    <h1><a href="/" style="text-decoration:none;">Project24</a></h1>
+    <p>Forum where posts are deleted after 24 hours</p>
+    <hr />
+    <div class="post">
+      <h3>{{.Subject}}</h3>by: {{.Name}}
+      <p>{{.Body}}</p>
+      <div>at: {{.TimePosted}}</div>
+    </div>
+    <br />
+    {{range .Comments}}
+    <div class="post">
+      {{.Name}}
+      <div>{{.Body}}</div>
+      at: {{.TimePosted}}
+    </div>
+    <br />
+    {{end}}
+    <form action="/reply/{{.ThreadID}}" enctype="mutlipart/form-data" method="POST" id="reply">
+      Name:
+      <input type="text" name="name" value="Anonymous" /><br />
+      Reply:
+      <textarea name="body"></textarea><br />
+      <input type="submit" value="submit" />
+    </form>
+    <div class="lower-left"><a href="https://github.com/mz2212/project24">Source</a></div>
+  </body>
+</html>
