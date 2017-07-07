@@ -2,14 +2,16 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
-
-	"encoding/binary"
 
 	"github.com/boltdb/bolt"
 )
@@ -55,17 +57,30 @@ func main() {
 		}
 		return nil
 	})
-	p.DB = db
+	p.DB = db // Change the line below to change how long to wait to poll
+	tick := time.NewTicker(time.Minute * 30)
+	go func() {
+		for range tick.C {
+			p.DB.Update(checkDel)
+		}
+	}()
 	//p.newPost(1, "Anon", "Test Post", "Test Post body that is a lot of words")
+	srv := &http.Server{Addr: ":8080"}
 	http.HandleFunc("/", p.viewPosts)
 	http.HandleFunc("/newthread/", p.newThread)
 	http.HandleFunc("/reply/", p.reply)
 	http.HandleFunc("/view/", p.viewThread)
-	http.ListenAndServe(":8080", nil)
+	go srv.ListenAndServe()
+	fmt.Println("Server started. Press Ctrl-C to exit.")
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	<-sc // This waits for somthing to come in on the "sc" channel.
+	fmt.Println("[Main] Ctrl-C Recieved. Exiting!")
+	tick.Stop()
+	srv.Shutdown(nil)
+	db.Close()
 }
 
-// I know deleting posts before viewing probably isn't the best way to do it, but it's better than polling
-// Actually, polling every half hour or so might be better...
 func (p *posts) viewPosts(w http.ResponseWriter, r *http.Request) {
 	pipe := new(bytes.Buffer)
 	dec := gob.NewDecoder(pipe)
@@ -178,4 +193,20 @@ func i2b(i uint64) []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, i)
 	return b
+}
+
+func checkDel(tx *bolt.Tx) error {
+	b := tx.Bucket([]byte("posts"))
+	pipe := new(bytes.Buffer)
+	dec := gob.NewDecoder(pipe)
+	var post post
+	cur := b.Cursor()
+	for k, v := cur.First(); k != nil; k, v = cur.Next() {
+		pipe.Write(v)
+		dec.Decode(&post) // Change the line below to change how long posts live
+		if time.Since(post.TimePosted) >= 24*time.Hour {
+			b.Delete(k)
+		}
+	}
+	return nil
 }
