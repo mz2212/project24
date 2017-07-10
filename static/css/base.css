@@ -1,0 +1,84 @@
+* {
+	font-family: "Source Sans Pro", Verdana, Arial, sans-serif;
+}
+
+body, html {
+	background: #eee;
+}
+
+.boop {
+	position: absolute;
+	top: 25%;
+	left: 50%;
+	text-align: center;
+	transform: translate(-50%, -50%);
+}
+
+table {
+	margin: auto;
+	width: 100%;
+	border: 1px solid darkgrey;
+	text-align: left;
+}
+
+tr:nth-child(even){
+	background: #ddd;
+}
+
+tr:hover{
+	background: #c5c5c5;
+}
+
+th, td{
+	padding: 0.2em 0.5em;
+}
+
+th{
+	text-align: left;
+	font-weight: bold;
+	background: #c5c5c5;
+	border-bottom: 1px solid #aaa;
+}
+
+#list{
+	border: 1px solid #aaa;
+	width: 100%;
+}
+
+a{
+	color:#212121;
+}
+
+a:hover{
+	color:#424242;
+}
+
+.t, .foot {
+	display: none;
+}
+
+hr {
+	border: 0;
+	border-top: 1px solid black;
+	opacity: .4;
+}
+
+hr.poke {
+		width: 350px;
+}
+
+.lower-left {
+	bottom: 0;
+	left: 0;
+	position: absolute;
+	margin-left: 2px;
+	margin-bottom: 2px;
+}
+
+.lower-right {
+	bottom: 0;
+	right: 0;
+	position: absolute;
+	margin-right: 2px;
+	margin-bottom: 2px;
+}

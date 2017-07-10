@@ -64,12 +64,14 @@ func main() {
 			p.DB.Update(checkDel)
 		}
 	}()
+	p.DB.Update(checkDel)
 	//p.newPost(1, "Anon", "Test Post", "Test Post body that is a lot of words")
 	srv := &http.Server{Addr: ":8080"}
 	http.HandleFunc("/", p.viewPosts)
 	http.HandleFunc("/newthread/", p.newThread)
 	http.HandleFunc("/reply/", p.reply)
 	http.HandleFunc("/view/", p.viewThread)
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	go srv.ListenAndServe()
 	fmt.Println("Server started. Press Ctrl-C to exit.")
 	sc := make(chan os.Signal, 1)
