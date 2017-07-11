@@ -9,17 +9,18 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/boltdb/bolt"
+	"github.com/microcosm-cc/bluemonday"
+	"github.com/russross/blackfriday"
 )
 
 type post struct {
 	Name       string
 	Subject    string
-	Body       string
+	Body       template.HTML
 	TimePosted time.Time
 	Comments   comments
 	ThreadID   int
@@ -28,7 +29,7 @@ type post struct {
 type comment struct {
 	Name       string
 	Subject    string
-	Body       string
+	Body       template.HTML
 	TimePosted time.Time
 }
 
@@ -83,114 +84,6 @@ func main() {
 	db.Close()
 }
 
-func (p *posts) viewPosts(w http.ResponseWriter, r *http.Request) {
-	pipe := new(bytes.Buffer)
-	dec := gob.NewDecoder(pipe)
-	posts := []post{}
-	var post post
-	t, err := template.ParseFiles("index.html")
-	if err != nil {
-		fmt.Println("Failed to load template: ", err)
-	}
-	p.DB.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("posts"))
-		cur := b.Cursor()
-		for k, v := cur.First(); k != nil; k, v = cur.Next() {
-			pipe.Write(v)
-			dec.Decode(&post)
-			posts = append(posts, post)
-		}
-		return nil
-	})
-	t.Execute(w, posts)
-}
-
-func (p *posts) viewThread(w http.ResponseWriter, r *http.Request) {
-	pipe := new(bytes.Buffer)
-	dec := gob.NewDecoder(pipe)
-	var post post
-	threadID, err := strconv.Atoi(r.URL.Path[len("/view/"):])
-	if err != nil {
-		fmt.Println("Failed to show thread: ", err)
-	}
-	t, err := template.ParseFiles("view.html")
-	if err != nil {
-		fmt.Println("Failed to load template: ", err)
-	}
-	p.DB.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("posts"))
-		pipe.Write(b.Get(i2b(uint64(threadID))))
-		dec.Decode(&post)
-		return nil
-	})
-	t.Execute(w, post)
-}
-
-func (p *posts) newThread(w http.ResponseWriter, r *http.Request) {
-	var req request
-	req.R = r
-	p.DB.Update(req.newPost)
-	http.Redirect(w, r, "/", http.StatusFound)
-}
-
-func (p *posts) reply(w http.ResponseWriter, r *http.Request) {
-	var req request
-	req.R = r
-	threadID, err := strconv.Atoi(r.URL.Path[len("/reply/"):])
-	if err != nil {
-		fmt.Println("Failed attempt to post comment: ", err)
-	}
-	req.ID = threadID
-	err = p.DB.Update(req.newComment)
-	http.Redirect(w, r, "/view/"+r.URL.Path[len("/reply/"):], http.StatusFound)
-}
-
-func (r request) newPost(tx *bolt.Tx) error {
-	pipe := new(bytes.Buffer)
-	enc := gob.NewEncoder(pipe)
-	b, err := tx.CreateBucketIfNotExists([]byte("posts"))
-	if err != nil {
-		return err
-	}
-	id, _ := b.NextSequence()
-	enc.Encode(post{
-		Name:       r.R.FormValue("name"),
-		Subject:    r.R.FormValue("subject"),
-		Body:       r.R.FormValue("body"),
-		TimePosted: time.Now(),
-		Comments:   make(comments),
-		ThreadID:   int(id),
-	})
-	err = b.Put(i2b(id), pipe.Bytes())
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r request) newComment(tx *bolt.Tx) error {
-	var post post
-	pipe := new(bytes.Buffer)
-	enc := gob.NewEncoder(pipe)
-	dec := gob.NewDecoder(pipe)
-	b := tx.Bucket([]byte("posts"))
-	pipe.Write(b.Get(i2b(uint64(r.ID))))
-	dec.Decode(&post)
-	comment := comment{
-		Name:       r.R.FormValue("name"),
-		Subject:    post.Subject,
-		Body:       r.R.FormValue("body"),
-		TimePosted: time.Now(),
-	}
-	post.Comments[len(post.Comments)+1] = comment
-	enc.Encode(post)
-	err := b.Put(i2b(uint64(r.ID)), pipe.Bytes())
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func i2b(i uint64) []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, i)
@@ -211,4 +104,9 @@ func checkDel(tx *bolt.Tx) error {
 		}
 	}
 	return nil
+}
+
+// Probably a bit much, but it makes it easier if I need to change it later
+func parseAndSanitize(b []byte) template.HTML {
+	return template.HTML(bluemonday.UGCPolicy().SanitizeBytes(blackfriday.MarkdownCommon(b)))
 }
