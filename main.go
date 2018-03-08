@@ -4,10 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
 	"time"
 )
 
@@ -33,37 +30,26 @@ type comments map[int]comment
 func main() {
 	var (
 		p = make(posts)
-	) // Change below to change poll time
-	tick := time.NewTicker(time.Minute * 30)
-	go func() {
-		for range tick.C {
-			for key, po := range p { // The line below is what needs to be changed to change the time posts live
-				if time.Since(po.TimePosted) >= 24*time.Hour {
-					delete(p, key)
-				}
-			}
-		}
-	}()
+	)
 	//p.newPost(1, "Anon", "Test Post", "Test Post body that is a lot of words")
-	srv := &http.Server{Addr: ":8080"}
 	http.HandleFunc("/", p.viewPosts)
 	http.HandleFunc("/newthread/", p.newThread)
 	http.HandleFunc("/reply/", p.reply)
 	http.HandleFunc("/view/", p.viewThread)
-	go srv.ListenAndServe()
-	fmt.Println("Server started. Press Ctrl-C to exit.")
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
-	<-sc // This waits for somthing to come in on the "sc" channel.
-	fmt.Println("Ctrl-C Recieved. Exiting!")
-	tick.Stop()
-	srv.Shutdown(nil)
+	http.ListenAndServe(":8080", nil)
 }
 
+// I know deleting posts before viewing probably isn't the best way to do it, but it's better than polling
+// Actually, polling every half hour or so might be better...
 func (p *posts) viewPosts(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFiles("index.html")
 	if err != nil {
 		fmt.Println("Failed to load template: ", err)
+	}
+	for key, po := range *p { // The line below is what needs to be changed to change the time posts live
+		if time.Since(po.TimePosted) >= 24*time.Hour {
+			delete(*p, key)
+		}
 	}
 	t.Execute(w, p)
 }
