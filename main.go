@@ -108,5 +108,5 @@ func checkDel(tx *bolt.Tx) error {
 
 // Probably a bit much, but it makes it easier if I need to change it later
 func parseAndSanitize(b []byte) template.HTML {
-	return template.HTML(bluemonday.UGCPolicy().SanitizeBytes(blackfriday.MarkdownCommon(b)))
+	return template.HTML(bluemonday.UGCPolicy().SanitizeBytes(blackfriday.Run(b)))
 }
