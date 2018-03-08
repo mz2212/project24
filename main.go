@@ -1,17 +1,26 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"html/template"
 	"net/http"
-	"strconv"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"github.com/boltdb/bolt"
+	"github.com/microcosm-cc/bluemonday"
+	"github.com/russross/blackfriday"
 )
 
 type post struct {
 	Name       string
 	Subject    string
-	Body       string
+	Body       template.HTML
 	TimePosted time.Time
 	Comments   comments
 	ThreadID   int
@@ -20,70 +29,84 @@ type post struct {
 type comment struct {
 	Name       string
 	Subject    string
-	Body       string
+	Body       template.HTML
 	TimePosted time.Time
 }
 
-type posts map[int]post
+type posts struct {
+	DB *bolt.DB
+}
+
+type request struct {
+	R  *http.Request
+	ID int
+}
+
 type comments map[int]comment
 
 func main() {
-	var (
-		p = make(posts)
-	)
+	var p posts
+	// Open the database
+	db, err := bolt.Open("posts.db", 0644, &bolt.Options{Timeout: 5 * time.Second})
+	if err != nil {
+		fmt.Println("Failed to open DB: ", err)
+	}
+	db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte("posts"))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	p.DB = db // Change the line below to change how long to wait to poll
+	tick := time.NewTicker(time.Minute * 30)
+	go func() {
+		for range tick.C {
+			p.DB.Update(checkDel)
+		}
+	}()
+	p.DB.Update(checkDel)
 	//p.newPost(1, "Anon", "Test Post", "Test Post body that is a lot of words")
+	srv := &http.Server{Addr: ":8080"}
 	http.HandleFunc("/", p.viewPosts)
 	http.HandleFunc("/newthread/", p.newThread)
 	http.HandleFunc("/reply/", p.reply)
 	http.HandleFunc("/view/", p.viewThread)
-	http.ListenAndServe(":8080", nil)
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	go srv.ListenAndServe()
+	fmt.Println("Server started. Press Ctrl-C to exit.")
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	<-sc // This waits for somthing to come in on the "sc" channel.
+	fmt.Println("[Main] Ctrl-C Recieved. Exiting!")
+	tick.Stop()
+	srv.Shutdown(nil)
+	db.Close()
 }
 
-// I know deleting posts before viewing probably isn't the best way to do it, but it's better than polling
-// Actually, polling every half hour or so might be better...
-func (p *posts) viewPosts(w http.ResponseWriter, r *http.Request) {
-	t, err := template.ParseFiles("index.html")
-	if err != nil {
-		fmt.Println("Failed to load template: ", err)
-	}
-	for key, po := range *p { // The line below is what needs to be changed to change the time posts live
-		if time.Since(po.TimePosted) >= 24*time.Hour {
-			delete(*p, key)
+func i2b(i uint64) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, i)
+	return b
+}
+
+func checkDel(tx *bolt.Tx) error {
+	b := tx.Bucket([]byte("posts"))
+	pipe := new(bytes.Buffer)
+	dec := gob.NewDecoder(pipe)
+	var post post
+	cur := b.Cursor()
+	for k, v := cur.First(); k != nil; k, v = cur.Next() {
+		pipe.Write(v)
+		dec.Decode(&post) // Change the line below to change how long posts live
+		if time.Since(post.TimePosted) >= 24*time.Hour {
+			b.Delete(k)
 		}
 	}
-	t.Execute(w, p)
+	return nil
 }
 
-func (p *posts) viewThread(w http.ResponseWriter, r *http.Request) {
-	threadID, err := strconv.Atoi(r.URL.Path[len("/view/"):])
-	if err != nil {
-		fmt.Println("Failed to show thread: ", err)
-	}
-	t, err := template.ParseFiles("view.html")
-	if err != nil {
-		fmt.Println("Failed to load template: ", err)
-	}
-	t.Execute(w, (*p)[threadID])
-}
-
-func (p *posts) newThread(w http.ResponseWriter, r *http.Request) {
-	p.newPost((*p)[len(*p)].ThreadID+1, r.FormValue("name"), r.FormValue("subject"), r.FormValue("body"))
-	http.Redirect(w, r, "/", http.StatusFound)
-}
-
-func (p *posts) reply(w http.ResponseWriter, r *http.Request) {
-	threadID, err := strconv.Atoi(r.URL.Path[len("/reply/"):])
-	if err != nil {
-		fmt.Println("Failed attempt to post comment: ", err)
-	}
-	p.newComment(threadID, r.FormValue("name"), r.FormValue("body"))
-	http.Redirect(w, r, "/view/"+r.URL.Path[len("/reply/"):], http.StatusFound)
-}
-
-func (p *posts) newPost(threadID int, name, subject, body string) {
-	(*p)[threadID] = post{ThreadID: threadID, Name: name, Subject: subject, Body: body, TimePosted: time.Now(), Comments: make(comments)}
-}
-
-func (p *posts) newComment(threadID int, name, body string) {
-	(*p)[threadID].Comments[len((*p)[threadID].Comments)+1] = comment{Name: name, Subject: (*p)[threadID].Subject, Body: body, TimePosted: time.Now()}
+// Probably a bit much, but it makes it easier if I need to change it later
+func parseAndSanitize(b []byte) template.HTML {
+	return template.HTML(bluemonday.UGCPolicy().SanitizeBytes(blackfriday.MarkdownCommon(b)))
 }
